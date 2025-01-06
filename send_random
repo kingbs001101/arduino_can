@@ -1,0 +1,46 @@
+#include <SPI.h>
+#include <mcp2515.h> // CAN Communication Library (https://github.com/autowp/arduino-mcp2515/)
+
+struct can_frame canMsg;
+MCP2515 mcp2515(10);
+
+void setup()
+{
+  while (!Serial);
+  Serial.begin(9600); // 시작 속도 설정
+  SPI.begin();        // SPI 통신 시작
+
+  mcp2515.reset();
+  mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ); // CAN 속도 500KBPS, 클럭 8MHz
+  mcp2515.setNormalMode(); // CAN 모드 설정
+  Serial.println("CAN communication initialized.");
+}
+
+void loop()
+{
+  // CAN ID와 데이터 길이 설정
+  canMsg.can_id = 0x036;  // CAN ID를 0x036으로 설정
+  canMsg.can_dlc = 8;     // 데이터 길이 8바이트
+
+  // 랜덤 데이터 생성
+  for (int i = 0; i < 8; i++) {
+    canMsg.data[i] = random(0, 256); // 0~255 범위의 랜덤 숫자 생성
+  }
+
+  // CAN 메시지 송신
+  if (mcp2515.sendMessage(&canMsg) == MCP2515::ERROR_OK) {
+    Serial.print("CAN message sent: ");
+    Serial.print("ID: 0x");
+    Serial.print(canMsg.can_id, HEX);
+    Serial.print(" Data: ");
+    for (int i = 0; i < canMsg.can_dlc; i++) {
+      Serial.print(canMsg.data[i], HEX); // 데이터 출력 (16진수)
+      Serial.print(" ");
+    }
+    Serial.println();
+  } else {
+    Serial.println("Error: Failed to send CAN message.");
+  }
+
+  delay(1000); // 1초 대기
+}
