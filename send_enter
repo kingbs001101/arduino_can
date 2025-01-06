@@ -1,0 +1,60 @@
+#include <SPI.h>
+#include <mcp2515.h> // CAN Communication Library (https://github.com/autowp/arduino-mcp2515/)
+
+struct can_frame canMsg;
+MCP2515 mcp2515(10);
+
+bool sendZeroData = false; // 엔터를 누르면 0값을 송신할지 여부를 판단
+
+void setup()
+{
+  while (!Serial);
+  Serial.begin(9600); // 시작 속도 설정
+  SPI.begin();        // SPI 통신 시작
+
+  mcp2515.reset();
+  mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ); // CAN 속도 500KBPS, 클럭 8MHz
+  mcp2515.setNormalMode(); // CAN 모드 설정
+  Serial.println("CAN communication initialized.");
+  Serial.println("Press Enter to toggle between sending 1 and 0 on CAN.");
+}
+
+void loop()
+{
+  // 시리얼 모니터에서 엔터 키가 눌렸는지 확인
+  if (Serial.available() > 0) {
+    char input = Serial.read();
+    if (input == '\n' || input == '\r') {  // 엔터 키를 눌렀을 때
+      sendZeroData = !sendZeroData;  // 0과 1을 토글
+      if (sendZeroData) {
+        Serial.println("Started sending CAN messages with data 0 every 1 second.");
+      } else {
+        Serial.println("Started sending CAN messages with data 1 every 1 second.");
+      }
+    }
+  }
+
+  // 0값 또는 1값 데이터를 송신
+  canMsg.can_id = 0x036;  // CAN ID를 0x036으로 설정
+  canMsg.can_dlc = 8;     // 데이터 길이 8바이트
+
+  // 토글에 따라 데이터 값 설정
+  for (int i = 0; i < 8; i++) {
+    canMsg.data[i] = sendZeroData ? 0 : 1;  // sendZeroData가 true일 때는 0, 아니면 1
+  }
+
+  if (mcp2515.sendMessage(&canMsg) == MCP2515::ERROR_OK) {
+    Serial.print("CAN message sent: ");
+    Serial.print("ID: 0x");
+    Serial.print(canMsg.can_id, HEX);
+    Serial.print(" Data: ");
+    for (int i = 0; i < canMsg.can_dlc; i++) {
+      Serial.print(canMsg.data[i], HEX); // 데이터 출력 (16진수)
+      Serial.print(" ");
+    }
+    Serial.println();
+  } else {
+    Serial.println("Error: Failed to send CAN message.");
+  }
+  delay(100); // 1초 대기
+}
